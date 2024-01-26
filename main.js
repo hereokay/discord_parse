@@ -5,6 +5,16 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 require('dotenv').config();
+const rateLimit = require('express-rate-limit');
+
+// 레이트 리밋 설정
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15분 동안
+  max: 100, // IP당 최대 100개 요청 허용
+  standardHeaders: true, // RateLimit 헤더를 반환하도록 설정
+  legacyHeaders: false, // X-RateLimit-* 헤더를 사용하지 않도록 설정
+});
+
 
 
 
@@ -35,14 +45,30 @@ const app = express();
 const port = 8000;  // 8000번 api 포트
 app.use(bodyParser.json());
 app.use(cors(corsOptions));
-
+app.use(limiter);
 
 // POST 요청 처리
 app.post('/search', async (req, res) => {
   try {
-    const { content, userName } = req.body;
-    let query = { content: new RegExp(content, 'i') };
+    const { content, userName, optionSearch } = req.body;
 
+    // 공백을 제거
+    const trimmedContent = content.trim();
+    const trimmedUserName = userName.trim();
+
+    // 둘 다 공백인지 확인
+    if (trimmedContent === '' && trimmedUserName === '') {
+        // 400 오류 반환
+        return res.status(400).send('content와 userName은 공백일 수 없습니다.');
+    }
+    
+    let query = {
+      $and: [
+          { content: new RegExp(content, 'i') },
+          { content: new RegExp(optionSearch, 'i') }
+      ]
+  };
+  
     // userName이 제공된 경우 쿼리에 추가
     if (userName) {
       query.userName = userName;
