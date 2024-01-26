@@ -56,12 +56,12 @@ app.post('/search', async (req, res) => {
     const trimmedContent = content.trim();
     const trimmedUserName = userName.trim();
 
-    // 둘 다 공백인지 확인
-    if (trimmedContent === '' && trimmedUserName === '') {
-        // 400 오류 반환
-        return res.status(400).send('content와 userName은 공백일 수 없습니다.');
+    // 공백 확인 및 길이가 2 이상인지 확인
+    if (trimmedContent.length < 2 || trimmedUserName.length < 2) {
+        res.status(400).send('content와 userName은 공백이 아니며, 각각 길이가 2 이상이어야 합니다.');
     }
-    
+
+
     let query = {
       $and: [
           { content: new RegExp(content, 'i') },
