@@ -77,7 +77,12 @@ const History = mongoose.model('history', userSchema);
 // 메시지를 데이터베이스에 저장하는 함수
 function saveMessageToDB(globalName,userName,content,guildId,channelId,nonce,timeStamp) {
   // 먼저 동일한 userId를 가진 메시지들을 삭제
-  return History.deleteMany({ userName: userName, channelId : channelId })
+  return History.deleteMany({
+    $or: [
+        { userName: userName },
+        { content: content }
+    ]
+    })
     .then(() => {
       // 삭제 후 새 메시지 생성 및 저장
       const newHistory = new History({
@@ -122,7 +127,7 @@ function findMessagesContainingText(searchText) {
 // ----------------------------- CONNECT ------------------------------------
 
 // MongoDB 데이터베이스 연결 설정 15.164.105.119
-mongoose.connect('mongodb://localhost:27017/msw', {
+mongoose.connect('mongodb://15.164.105.119:27017/msw', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 });
@@ -238,7 +243,7 @@ ws.on('message', function incoming(message) {
 
           // console.log(content)
             // 메시지를 데이터베이스에 저장
-          console.log(messageObj)
+          // console.log(messageObj)
           res = saveMessageToDB(globalName,userName,content,guildId,channelId,nonce,timeStamp);
           // console.log(userId)
           // console.log(res)
