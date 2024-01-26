@@ -255,7 +255,7 @@ ws.on('message', function incoming(message) {
           // 경매장 채널만
           // if (channelId !== '1169797266127736923'){
           //   return;
-          // }
+          // }https://discord.com/channels/1134059900666916935/1169797266127736923/1200334065627304037
           // // 30~50파티 채널만
           // if (channelId !== '1193050652876750848'){
           //   return;
@@ -270,7 +270,7 @@ ws.on('message', function incoming(message) {
 
           // console.log(content)
             // 메시지를 데이터베이스에 저장
-          console.log(messageObj)
+          // console.log(messageObj)
          res = saveMessageToDB(globalName,userName,content,guildId,channelId,msgId,timeStamp);
           // console.log(userId)
           // console.log(res)
