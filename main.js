@@ -61,10 +61,13 @@ app.listen(port, () => {
 });
 
 const userSchema = new mongoose.Schema({
+  globalName: String,
   userName: String,
-  userId:String,
-  timeStamp: String,
-  content:String
+  content: String,
+  guildId:String,
+  channelId:String,
+  nonce:String,
+  timeStamp: String
 });
 
 const History = mongoose.model('history', userSchema);
@@ -72,15 +75,18 @@ const History = mongoose.model('history', userSchema);
 
 // ----------------------------- FUNCTION ------------------------------------
 // 메시지를 데이터베이스에 저장하는 함수
-function saveMessageToDB(userName, content, userId, timeStamp) {
+function saveMessageToDB(globalName,userName,content,guildId,channelId,nonce,timeStamp) {
   // 먼저 동일한 userId를 가진 메시지들을 삭제
-  return History.deleteMany({ content: content })
+  return History.deleteMany({ userName: userName, channelId : channelId })
     .then(() => {
       // 삭제 후 새 메시지 생성 및 저장
       const newHistory = new History({
+        globalName: globalName,
         userName: userName,
         content: content,
-        userId: userId,
+        guildId:guildId,
+        channelId:channelId,
+        nonce:nonce,
         timeStamp: timeStamp
       });
 
@@ -115,7 +121,7 @@ function findMessagesContainingText(searchText) {
 
 // ----------------------------- CONNECT ------------------------------------
 
-// MongoDB 데이터베이스 연결 설정
+// MongoDB 데이터베이스 연결 설정 15.164.105.119
 mongoose.connect('mongodb://localhost:27017/msw', {
   useNewUrlParser: true,
   useUnifiedTopology: true
@@ -190,26 +196,50 @@ ws.on('message', function incoming(message) {
   
       try {
         const messageObj = JSON.parse(messageString);
-        // console.log(messageObj)
+        
         // MESSAGE_CREATE 유형의 메시지인지 확인
         if (messageObj.t === 'MESSAGE_CREATE') {
+          
+
+          
           // 필요한 정보 추출
-          // const nonce = messageObj.d.nonce;
-          const userName = messageObj.d.author.username;
+          
+          let globalName = messageObj.d.author.global_name; // 채널별명
+          const userName = messageObj.d.author.username; // 진짜이름
+          const guildId = messageObj.d.guild_id // 메이플랜드 채널
+          const channelId = messageObj.d.channel_id; // 경매장 or 파티
+          const nonce = messageObj.d.nonce;
+
+          if (globalName===null){
+            globalName = userName;
+          }
+
+          const timeStamp =  messageObj.d.timestamp;
           let content = messageObj.d.content.replace(/<[^>]*>/g, "");
           // 공백을 기준으로 단어 분리, 중복 제거 후 다시 결합
           content = [...new Set(content.split(/\s+/))].join(' ');
-          
-          const userId = messageObj.d.guild_id
-          const timeStamp =  messageObj.d.timestamp;
-          
+
+          /* 현재 모든 채널 허용 */
+          // 경매장 채널만
+          // if (channelId !== '1169797266127736923'){
+          //   return;
+          // }
+          // // 30~50파티 채널만
+          // if (channelId !== '1193050652876750848'){
+          //   return;
+          // }
+          // 메이플랜드 채널
+          if(guildId !== '1134059900666916935'){
+            return;
+          }
           
           //  추출한 정보 출력
           //   console.log(`[${username}]: ${content}`);
 
           // console.log(content)
             // 메시지를 데이터베이스에 저장
-          res = saveMessageToDB(userName,content,userId,timeStamp);
+          console.log(messageObj)
+          res = saveMessageToDB(globalName,userName,content,guildId,channelId,nonce,timeStamp);
           // console.log(userId)
           // console.log(res)
 
