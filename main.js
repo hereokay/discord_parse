@@ -57,8 +57,9 @@ app.post('/search', async (req, res) => {
     const trimmedUserName = userName.trim();
 
     // 공백 확인 및 길이가 2 이상인지 확인
-    if (trimmedContent.length < 2 || trimmedUserName.length < 2) {
+    if (trimmedContent.length < 2 && trimmedUserName.length < 2) {
         res.status(400).send('content와 userName은 공백이 아니며, 각각 길이가 2 이상이어야 합니다.');
+        return;
     }
 
 
@@ -92,7 +93,7 @@ const userSchema = new mongoose.Schema({
   content: String,
   guildId:String,
   channelId:String,
-  nonce:String,
+  msgId:String,
   timeStamp: String
 });
 
@@ -101,7 +102,7 @@ const History = mongoose.model('history', userSchema);
 
 // ----------------------------- FUNCTION ------------------------------------
 // 메시지를 데이터베이스에 저장하는 함수
-function saveMessageToDB(globalName,userName,content,guildId,channelId,nonce,timeStamp) {
+function saveMessageToDB(globalName,userName,content,guildId,channelId,msgId,timeStamp) {
   // 먼저 동일한 userId를 가진 메시지들을 삭제
   return History.deleteMany({
     $or: [
@@ -117,14 +118,14 @@ function saveMessageToDB(globalName,userName,content,guildId,channelId,nonce,tim
         content: content,
         guildId:guildId,
         channelId:channelId,
-        nonce:nonce,
+        msgId:msgId,
         timeStamp: timeStamp
       });
 
       return newHistory.save();
     })
     .then(() => {
-      console.log('메시지 저장 성공');
+      //console.log('메시지 저장 성공');
     })
     .catch((error) => {
       console.error('메시지 저장 중 에러 발생:', error);
@@ -239,7 +240,7 @@ ws.on('message', function incoming(message) {
           const userName = messageObj.d.author.username; // 진짜이름
           const guildId = messageObj.d.guild_id // 메이플랜드 채널
           const channelId = messageObj.d.channel_id; // 경매장 or 파티
-          const nonce = messageObj.d.nonce;
+          const msgId = messageObj.d.id;
 
           if (globalName===null){
             globalName = userName;
@@ -269,8 +270,8 @@ ws.on('message', function incoming(message) {
 
           // console.log(content)
             // 메시지를 데이터베이스에 저장
-          // console.log(messageObj)
-          res = saveMessageToDB(globalName,userName,content,guildId,channelId,nonce,timeStamp);
+          console.log(messageObj)
+         res = saveMessageToDB(globalName,userName,content,guildId,channelId,msgId,timeStamp);
           // console.log(userId)
           // console.log(res)
 
