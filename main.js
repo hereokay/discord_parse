@@ -15,6 +15,10 @@ const limiter = rateLimit({
   legacyHeaders: false, // X-RateLimit-* 헤더를 사용하지 않도록 설정
 });
 
+// dbIp = "localhost"
+dbIp = "3.38.25.218"
+dbPort = "27017"
+
 
 
 
@@ -38,13 +42,13 @@ const corsOptions = {
 
 
 
-
 // back to front 소켓
 const wss_front = new WebSocket.Server({ port: 4000 }); // 4000번 웹소켓
 const app = express();
 const port = 8000;  // 8000번 api 포트
-app.use(bodyParser.json());
+
 app.use(cors(corsOptions));
+app.use(bodyParser.json());
 app.use(limiter);
 
 // POST 요청 처리
@@ -52,32 +56,24 @@ app.post('/search', async (req, res) => {
   try {
     const { content, userName, optionSearch } = req.body;
 
-    // 공백을 제거
-    const trimmedContent = content.trim();
-    const trimmedUserName = userName.trim();
-
-    // 공백 확인 및 길이가 2 이상인지 확인
-    if (trimmedContent.length < 2 && trimmedUserName.length < 2) {
-        res.status(400).send('content와 userName은 공백이 아니며, 각각 길이가 2 이상이어야 합니다.');
-        return;
-    }
-
-
+    const contentKeywords = content.split(" ");
+    // 각 키워드에 대해 MongoDB 쿼리 조건 생성
+    const contentConditions = contentKeywords.map(keyword => {
+      return { content: new RegExp(keyword, 'i') };
+    });
+    
     let query = {
       $and: [
-          { content: new RegExp(content, 'i') },
+          ...contentConditions,
+          { globalName: new RegExp(userName, 'i') },
           { content: new RegExp(optionSearch, 'i') }
       ]
   };
-  
-    // userName이 제공된 경우 쿼리에 추가
-    if (userName) {
-      query.userName = userName;
-    }
 
-    const results = await History.find(query);
+  const results = await History.find(query).sort({ _id: -1 }).limit(500);
     res.status(200).json(results);
   } catch (error) {
+    console.log(error.message)
     res.status(500).send('서버 오류: ' + error.message);
   }
 });
@@ -154,7 +150,7 @@ function findMessagesContainingText(searchText) {
 // ----------------------------- CONNECT ------------------------------------
 
 // MongoDB 데이터베이스 연결 설정 15.164.105.119
-mongoose.connect('mongodb://15.164.105.119:27017/msw', {
+mongoose.connect('mongodb://' + dbIp + ':' +dbPort+ '/msw', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 });
@@ -240,10 +236,31 @@ ws.on('message', function incoming(message) {
           const userName = messageObj.d.author.username; // 진짜이름
           const guildId = messageObj.d.guild_id // 메이플랜드 채널
           const channelId = messageObj.d.channel_id; // 경매장 or 파티
+          const nick = messageObj.d.member.nick;
           const msgId = messageObj.d.id;
+          
+          if(nick !== null ){
+            // nick이 있으먄 우선순위
+            globalName = nick;
+          }
+          else{
+            // 닉이 없고 globalName이 있으면
+            if (globalName !== null){
+              globalName = globalName;
+            }
+            else{
+              //다 없으면
+              globalName = userName;
+            }
+          }
 
           if (globalName===null){
-            globalName = userName;
+            if (nick !== null){
+              globalName = nick;
+            }
+            else{
+              globalName = userName;
+            }
           }
 
           const timeStamp =  messageObj.d.timestamp;
