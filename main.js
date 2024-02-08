@@ -3,68 +3,41 @@ const mysql = require('mysql');
 const mongoose = require('mongoose');
 const express = require('express');
 const bodyParser = require('body-parser');
+let {INIT_MSG, START_MSG, CONTINUE_MSG} = require('./constants.js');
 
-require('dotenv').config();
 
-
-dbUri = process.env.DB_URI
-
-// ----------------------------- VALUE ------------------------------------
 
 // Discord WebSocket 게이트웨이 URL
 const url = "wss://gateway.discord.gg/?v=9&encoding=json";
+
+// DB URL
+dbUri = process.env.DB_URI
+console.log(INIT_MSG)
+
+const userSchema = new mongoose.Schema({
+  globalName: String,
+  userName: String,
+  content: String,
+  guildId:String,
+  channelId:String,
+  msgId:String,
+  timeStamp: String
+});
+
+// ----------------------------- VALUE ------------------------------------
+
+
+
 // WebSocket 클라이언트 생성
 let ws = new WebSocket(url);
 
-const token = process.env.TOKEN
 
 
-init_msg = {
-  "op": 2,
-  "d": {
-    "token": token,
-    "capabilities": 16381,
-    "properties": {
-      "os": "Mac OS X",
-      "browser": "Chrome",
-      "device": "",
-      "system_locale": "ko-KR",
-      "browser_user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-      "browser_version": "121.0.0.0",
-      "os_version": "10.15.7",
-      "referrer": "https://www.google.com/",
-      "referring_domain": "www.google.com",
-      "search_engine": "google",
-      "referrer_current": "",
-      "referring_domain_current": "",
-      "release_channel": "stable",
-      "client_build_number": 261973,
-      "client_event_source": null
-    },
-    "presence": {
-      "status": "online",
-      "since": 0,
-      "activities": [],
-      "afk": false
-    },
-    "compress": false,
-    "client_state": {
-      "guild_versions": {},
-      "highest_last_message_id": "0",
-      "read_state_version": 0,
-      "user_guild_settings_version": -1,
-      "private_channels_version": "0",
-      "api_code_version": 0
-    }
-  }
-}
-start_msg = {"op":37,"d":{"subscriptions":{"1134059900666916935":{"typing":true,"threads":true,"activities":true,"members":[],"member_updates":false,"channels":{},"thread_member_lists":[]}}}}
-continue_msg = {"op":1,"d":4000}
+const History = mongoose.model('history', userSchema);
 
-const corsOptions = {
-  origin: '*',
-  optionsSuccessStatus: 200 // 일부 레거시 브라우저에 대한 지원
-};
+
+// ----------------------------- FUNCTION ------------------------------------
+
 
 function checkAndBlock(content, userName) {
   // %와 /의 개수를 세기
@@ -83,20 +56,6 @@ function checkAndBlock(content, userName) {
   }
 }
 
-const userSchema = new mongoose.Schema({
-  globalName: String,
-  userName: String,
-  content: String,
-  guildId:String,
-  channelId:String,
-  msgId:String,
-  timeStamp: String
-});
-
-const History = mongoose.model('history', userSchema);
-
-
-// ----------------------------- FUNCTION ------------------------------------
 // 메시지를 데이터베이스에 저장하는 함수
 function saveMessageToDB(globalName,userName,content,guildId,channelId,msgId,timeStamp) {
 
@@ -135,12 +94,12 @@ db.once('open', function() {
 
 ws.on('open', () => {
     console.log('Connected to Discord Gateway');
-    ws.send(JSON.stringify(init_msg)); // init_msg 전송
+    ws.send(JSON.stringify(INIT_MSG)); // init_msg 전송
   });
 
 
-  
-ws.on('message', function incoming(message) {
+
+  ws.on('message', function incoming(message) {
     if (message instanceof Buffer) {
       const messageString = message.toString('utf-8');
   
@@ -232,16 +191,21 @@ ws.on('error', function error(error) {
 // Initial delay of 1 second before the first message
 setTimeout(() => {
   // Send the first message
-  ws.send(JSON.stringify(start_msg));
+  ws.send(JSON.stringify(START_MSG));
 
   // Set an interval to send the message every 5 minutes
   setInterval(() => {
-      ws.send(JSON.stringify(start_msg));
+      ws.send(JSON.stringify(START_MSG));
   }, 300000); // 300000 milliseconds = 5 minutes
 }, 1000);
 
  
  // 매 20초마다 continue_msg 보내기
  setInterval(() => {
-   ws.send(JSON.stringify(continue_msg));
+   ws.send(JSON.stringify(CONTINUE_MSG));
  }, 40000);
+
+
+
+
+ // DB 관련 ㅇ
