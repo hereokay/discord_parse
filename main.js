@@ -1,42 +1,16 @@
 const WebSocket = require('ws');
-const mysql = require('mysql');
-const mongoose = require('mongoose');
 const express = require('express');
 const bodyParser = require('body-parser');
-let {INIT_MSG, START_MSG, CONTINUE_MSG} = require('./constants.js');
-
+const {INIT_MSG, START_MSG, CONTINUE_MSG} = require('./constants.js');
+const { saveChatToDB } = require('./db.js');
 
 
 // Discord WebSocket 게이트웨이 URL
 const url = "wss://gateway.discord.gg/?v=9&encoding=json";
 
-// DB URL
-dbUri = process.env.DB_URI
-
-
-const chatSchema = new mongoose.Schema({
-  globalName: String,
-  userName: String,
-  content: String,
-  guildId:String,
-  channelId:String,
-  msgId:String,
-  timeStamp: String
-});
-
-// ----------------------------- VALUE ------------------------------------
-
-
 
 // WebSocket 클라이언트 생성
 let ws = new WebSocket(url);
-
-
-
-const Chat = mongoose.model('history', chatSchema);
-
-
-// ----------------------------- FUNCTION ------------------------------------
 
 
 function checkAndBlock(content, userName) {
@@ -56,50 +30,13 @@ function checkAndBlock(content, userName) {
   }
 }
 
-// 메시지를 데이터베이스에 저장하는 함수
-function saveMessageToDB(globalName,userName,content,guildId,channelId,msgId,timeStamp) {
-
-  const newChat = new Chat({
-          globalName: globalName,
-          userName: userName,
-          content: content,
-          guildId:guildId,
-          channelId:channelId,
-          msgId:msgId,
-          timeStamp: timeStamp
-      });
-  
-  newChat.save()
-}
-
-
-// ----------------------------- CONNECT ------------------------------------
-
-// MongoDB 데이터베이스 연결 설정 15.164.105.119
-mongoose.connect(dbUri, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-});
-
-
-// DB 연결관리
-const db = mongoose.connection;
-
-db.on('error', console.error.bind(console, 'MongoDB 연결 에러:'));
-
-db.once('open', function() {
-  console.log('MongoDB 연결 성공');
-});
-
 
 ws.on('open', () => {
     console.log('Connected to Discord Gateway');
     ws.send(JSON.stringify(INIT_MSG)); // init_msg 전송
-  });
-
-
-
-  ws.on('message', function incoming(message) {
+});
+  
+ws.on('message', function incoming(message) {
     if (message instanceof Buffer) {
       const messageString = message.toString('utf-8');
   
@@ -154,7 +91,7 @@ ws.on('open', () => {
             return;
           }
           
-         res = saveMessageToDB(globalName,userName,content,guildId,channelId,msgId,timeStamp);
+         res = saveChatToDB(globalName,userName,content,guildId,channelId,msgId,timeStamp);
         }
       } catch (error) {
         console.error('Error parsing message:', error);
