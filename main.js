@@ -12,9 +12,9 @@ const url = "wss://gateway.discord.gg/?v=9&encoding=json";
 
 // DB URL
 dbUri = process.env.DB_URI
-console.log(INIT_MSG)
 
-const userSchema = new mongoose.Schema({
+
+const chatSchema = new mongoose.Schema({
   globalName: String,
   userName: String,
   content: String,
@@ -33,7 +33,7 @@ let ws = new WebSocket(url);
 
 
 
-const History = mongoose.model('history', userSchema);
+const Chat = mongoose.model('history', chatSchema);
 
 
 // ----------------------------- FUNCTION ------------------------------------
@@ -59,8 +59,7 @@ function checkAndBlock(content, userName) {
 // 메시지를 데이터베이스에 저장하는 함수
 function saveMessageToDB(globalName,userName,content,guildId,channelId,msgId,timeStamp) {
 
-      
-  const newHistory = new History({
+  const newChat = new Chat({
           globalName: globalName,
           userName: userName,
           content: content,
@@ -69,7 +68,8 @@ function saveMessageToDB(globalName,userName,content,guildId,channelId,msgId,tim
           msgId:msgId,
           timeStamp: timeStamp
       });
-      newHistory.save()
+  
+  newChat.save()
 }
 
 
