@@ -18,19 +18,18 @@ const chatSchema = new mongoose.Schema({
 const Chat = mongoose.model('history', chatSchema);
 
 // 메시지를 데이터베이스에 저장하는 함수
-function saveChatToDB(globalName,userName,content,guildId,channelId,msgId,timeStamp) {
+function saveChatToDB(chat) {
+    chat.save()
+}
 
-    const newChat = new Chat({
-            globalName: globalName,
-            userName: userName,
-            content: content,
-            guildId:guildId,
-            channelId:channelId,
-            msgId:msgId,
-            timeStamp: timeStamp
-        });
-    
-    newChat.save()
+function saveChatListToDB(chats){
+    Chat.insertMany(chats, (error, docs) => {
+        if (error) {
+            console.error('Error saving chats to DB:', error);
+        } else {
+            console.log(`${docs.length} chats saved to DB.`);
+        }
+    });
 }
 
 // MongoDB 데이터베이스 연결 설정 15.164.105.119
@@ -48,4 +47,4 @@ db.once('open', function() {
   console.log('MongoDB 연결 성공');
 });
 
-module.exports = { saveChatToDB };
+module.exports = { Chat, saveChatToDB, saveChatListToDB};

@@ -1,4 +1,4 @@
-const { saveChatToDB } = require('./db');
+const { Chat, saveChatToDB, saveChatListToDB } = require('./db');
 const { onMessage } = require('./parseWs');
 
 
@@ -20,59 +20,59 @@ function checkAndBlock(content, userName) {
 }
 
 
+function determineGlobalName(messageObj){
+  let globalName = messageObj.d.author.global_name; // 채널별명
+  const userName = messageObj.d.author.username; // 진짜이름
+  const nick = messageObj.d.member.nick;
+
+  if(nick !== null ){
+    // nick이 있으먄 우선순위
+    globalName = nick;
+  }
+  else{
+    // 닉이 없고 globalName이 있으면
+    if (globalName !== null){
+      globalName = globalName;
+    }
+    else{
+      //다 없으면
+      globalName = userName;
+    }
+  }
+
+  if (globalName===null){
+    if (nick !== null){
+      globalName = nick;
+    }
+    else{
+      globalName = userName;
+    }
+  }
+  return globalName;
+}
 
 function extractMessageToDB(messageObj){
   try {
     // MESSAGE_CREATE 유형의 메시지인지 확인
     if (messageObj.t === 'MESSAGE_CREATE') {
-      // console.log(messageObj)
-      // 필요한 정보 추출
-      
-      let globalName = messageObj.d.author.global_name; // 채널별명
-      const userName = messageObj.d.author.username; // 진짜이름
-      const guildId = messageObj.d.guild_id // 메이플랜드 채널
-      const channelId = messageObj.d.channel_id; // 경매장 or 파티
-      const nick = messageObj.d.member.nick;
-      const msgId = messageObj.d.id;
-      
-      if(nick !== null ){
-        // nick이 있으먄 우선순위
-        globalName = nick;
-      }
-      else{
-        // 닉이 없고 globalName이 있으면
-        if (globalName !== null){
-          globalName = globalName;
-        }
-        else{
-          //다 없으면
-          globalName = userName;
-        }
-      }
 
-      if (globalName===null){
-        if (nick !== null){
-          globalName = nick;
-        }
-        else{
-          globalName = userName;
-        }
-      }
-
-      const timeStamp =  messageObj.d.timestamp;
-      let content = messageObj.d.content.replace(/<[^>]*>/g, "");
       // 공백을 기준으로 단어 분리, 중복 제거 후 다시 결합
+      let content = messageObj.d.content.replace(/<[^>]*>/g, "");
       content = [...new Set(content.split(/\s+/))].join(' ');
       
-      checkAndBlock(content, userName);
+      checkAndBlock(content, messageObj.d.author.username);
 
-      // 메이플랜드 채널
-      if(guildId !== '1134059900666916935'){
-        return;
-      }
-      
-     res = saveChatToDB(globalName,userName,content,guildId,channelId,msgId,timeStamp);
-     
+      const newChat = new Chat({
+          globalName: determineGlobalName(messageObj),
+          userName: messageObj.d.author.username,
+          content: content,
+          guildId: messageObj.d.guild_id,
+          channelId:messageObj.d.channel_id,
+          msgId: messageObj.d.id,
+          timeStamp: messageObj.d.timestamp
+      });
+
+     res = saveChatToDB(newChat);
     }
   } catch (error) {
     console.error('Error extractMessageToDB :', error);
@@ -92,9 +92,10 @@ onMessage(function(message) {
       const messageObj = JSON.parse(messageString);
       
       // MESSAGE_CREATE 유형의 메시지인지 확인
-      if (messageObj.t === 'MESSAGE_CREATE') {
-        // console.log(messageObj)
-        // 필요한 정보 추출
+      if (messageObj.t === 'MESSAGE_CREATE' ) {
+        if(messageObj.d.guild_id !== '1134059900666916935'){
+          return;
+        }
         
         extractMessageToDB(messageObj);
       }
@@ -107,6 +108,10 @@ onMessage(function(message) {
 function saveBufferToDB(){
   savingLock.isSaving = true; // Lock to prevent new saves
 
+  //TODO messageBuffer 에 대한 DB 추가작업 진행 후
 
-  messageBuffer
+  //
+  messageBuffer = tempBuffer; // 그 동안 쌓여있던 버퍼 해결
+  tempBuffer = [];
+  savingLock.isSaving = false; // 락 해제
 }
