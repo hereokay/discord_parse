@@ -3,18 +3,25 @@ const { onMessage } = require('./parseWs');
 
 
 function checkAndBlock(content, userName) {
-  // %와 /의 개수를 세기
-  const percentCount = (content.match(/%/g) || []).length;
-  const slashCount = (content.match(/\//g) || []).length;
-
+  const normalizedPercent = content.replace(/%{2,}/g, '%');
+  // Replace sequences of two or more '/' with a single '/'
+  const normalizedSlashes = normalizedPercent.replace(/\/{2,}/g, '/');
+  // Normalize sequences of '[' to a single '['
+  const normalizedBrackets = normalizedSlashes.replace(/\[{2,}/g, '[');
+  
+  // Count '%' and '/' occurrences
+  const percentCount = (normalizedBrackets.match(/%/g) || []).length;
+  const slashCount = (normalizedBrackets.match(/\//g) || []).length;
+  // Count normalized '[' occurrences
+  const bracketCount = (normalizedBrackets.match(/\[/g) || []).length;
   
 
   // 조건 충족 시 GET 요청 보내기
-  if (percentCount >= 8 || slashCount >= 8) {
+  if (percentCount >= 8 || slashCount >= 8 || bracketCount >= 8) {
       const url = `http://3.38.25.218/block?security=0807&userName=${userName}`;
       fetch(url)
           .then(response => response.json())
-          .then(data => console.log(data))
+          .then()
           .catch(error => console.error('Error:', error));
   }
 }
@@ -51,7 +58,7 @@ function determineGlobalName(messageObj){
   return globalName;
 }
 
-function extractMessageToDB(messageObj){
+function makeChat(messageObj){
   try {
     // MESSAGE_CREATE 유형의 메시지인지 확인
     if (messageObj.t === 'MESSAGE_CREATE') {
@@ -71,11 +78,19 @@ function extractMessageToDB(messageObj){
           msgId: messageObj.d.id,
           timeStamp: messageObj.d.timestamp
       });
-
-     res = saveChatToDB(newChat);
+      return newChat;
+     //res = saveChatToDB(newChat);
     }
   } catch (error) {
     console.error('Error extractMessageToDB :', error);
+  }
+}
+
+function processAndSaveMessages(messageList) {
+  const chatObjects = messageList.map(messageObj => makeChat(messageObj)).filter(chat => chat !== undefined);
+
+  if (chatObjects.length > 0) {
+      saveChatListToDB(chatObjects);
   }
 }
 
@@ -91,13 +106,29 @@ onMessage(function(message) {
     try {
       const messageObj = JSON.parse(messageString);
       
+
       // MESSAGE_CREATE 유형의 메시지인지 확인
       if (messageObj.t === 'MESSAGE_CREATE' ) {
         if(messageObj.d.guild_id !== '1134059900666916935'){
           return;
         }
         
-        extractMessageToDB(messageObj);
+        console.log(messageObj.d.author.username);
+
+
+        if (savingLock.isSaving) {
+          // If a save operation is in progress, add to temporary buffer
+          tempBuffer.push(messageObj);
+        } else {
+          // Otherwise, add to the main buffer
+          messageBuffer.push(messageObj);
+        }
+
+        if (messageBuffer.length >= 100 && !savingLock.isSaving) {
+          saveBufferToDB();
+        }
+
+
       }
     } catch (error) {
       console.error('Error parsing message:', error);
@@ -108,10 +139,11 @@ onMessage(function(message) {
 function saveBufferToDB(){
   savingLock.isSaving = true; // Lock to prevent new saves
 
-  //TODO messageBuffer 에 대한 DB 추가작업 진행 후
+  //TODO messageBuffer 에 대한 DB 추가작업 진행 
+  processAndSaveMessages(messageBuffer)
 
   //
-  messageBuffer = tempBuffer; // 그 동안 쌓여있던 버퍼 해결
+  messageBuffer = tempBuffer; // 버퍼를 임시버퍼로 옮김
   tempBuffer = [];
   savingLock.isSaving = false; // 락 해제
 }
