@@ -24,7 +24,12 @@ function saveChatToDB(chat) {
     chat.save()
 }
 
+
+
 function saveChatListToDB(chats){
+    
+    
+
     Chat.insertMany(chats).then(docs => {
         
     }).catch(error => {

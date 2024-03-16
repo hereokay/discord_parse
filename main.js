@@ -2,7 +2,11 @@ const { Chat, saveChatToDB, saveChatListToDB } = require('./db');
 const { onMessage } = require('./parseWs');
 
 
+
+// 기존 채팅이 존재하는지 확인
 function checkAndBlock(content, userName) {
+  
+
   const normalizedPercent = content.replace(/%{2,}/g, '%');
   // Replace sequences of two or more '/' with a single '/'
   const normalizedSlashes = normalizedPercent.replace(/\/{2,}/g, '/');
@@ -88,6 +92,8 @@ function makeChat(messageObj){
 
 function processAndSaveMessages(messageList) {
   const chatObjects = messageList.map(messageObj => makeChat(messageObj)).filter(chat => chat !== undefined);
+
+  
 
   if (chatObjects.length > 0) {
       saveChatListToDB(chatObjects);
