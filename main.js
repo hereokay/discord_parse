@@ -20,29 +20,16 @@ ws.on('open', () => {
 });
 
 ws.on('message', function incoming(message) {
-  // 메시지 받았을 때 콜백 함수 호출
   if (message instanceof Buffer) {
     const messageString = message.toString('utf-8');
-
+    
     try {
       const messageObj = JSON.parse(messageString);
-      
 
-      // MESSAGE_CREATE 유형의 메시지인지 확인
-      if (messageObj.t === 'MESSAGE_CREATE' ) {
-        if(messageObj.d.guild_id !== '1134059900666916935'){
-          return;
-        }
-
-        
-        axios.post(URI, messageObj)
-          .then(function (response) {
-            console.log('Response:', response.data);
-          })
-          .catch(function (error) {
-            console.error('Error:', error);
-          });
-
+      if (messageObj.t === 'MESSAGE_CREATE' && messageObj.d.guild_id === '1134059900666916935') {
+        // 조건에 맞는 메시지를 큐에 추가
+        messageQueue.push(messageObj);
+        console.log(messageObj);
       }
     } catch (error) {
       console.error('Error parsing message:', error);
@@ -65,3 +52,19 @@ setInterval(() => {
    ws.send(JSON.stringify(CONTINUE_MSG));
  }, 40000);
 
+
+ // 1분마다 큐에 있는 메시지를 일괄적으로 처리
+setInterval(() => {
+  if (messageQueue.length > 0) {
+    axios.post(URI, messageQueue)
+      .then(function (response) {
+        console.log(`${messageQueue.length} messages sent. Response:`, response.data);
+      })
+      .catch(function (error) {
+        console.error('Error sending messages:', error);
+      });
+    
+    // 메시지 전송 후 큐 초기화
+    messageQueue = [];
+  }
+}, 60000); // 60000ms = 1분
