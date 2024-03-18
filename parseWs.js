@@ -1,6 +1,4 @@
-const {INIT_MSG, START_MSG, CONTINUE_MSG} = require('./constants');
-const WebSocket = require('ws');
-const bodyParser = require('body-parser');
+
 
 
 // Discord WebSocket 게이트웨이 URL
