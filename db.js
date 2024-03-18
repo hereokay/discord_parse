@@ -21,15 +21,12 @@ const Chat = mongoose.model('history', chatSchema);
 
 // 메시지를 데이터베이스에 저장하는 함수
 function saveChatToDB(chat) {
-    chat.save()
+    chat.save();
 }
 
 
 
 function saveChatListToDB(chats){
-    
-    
-
     Chat.insertMany(chats).then(docs => {
         
     }).catch(error => {
@@ -55,14 +52,13 @@ db.once('open', function() {
   setInterval(deleteOldMessages, 3600000);
 });
 
-module.exports = { Chat, saveChatToDB, saveChatListToDB};
+module.exports = { Chat, saveChatToDB, saveChatListToDB, db};
 
 function deleteOldMessages() {
     const currentTime = new Date();
     const fortyEightHoursAgo = new Date(currentTime.getTime() - (48 * 60 * 60 * 1000));
     const fortyEightHoursAgoStr = fortyEightHoursAgo.toISOString();
 
-  
 
     db.collection('histories').deleteMany({ timeStamp: { $lt: fortyEightHoursAgoStr } }, function(err, result) {
       if (err) {

@@ -1,33 +1,24 @@
-const { Chat, saveChatToDB, saveChatListToDB } = require('./db');
+const { Chat, saveChatToDB, saveChatListToDB, db } = require('./db');
 const { onMessage } = require('./parseWs');
 
 
 
 // 기존 채팅이 존재하는지 확인
-function checkAndBlock(content, userName) {
-  
+function isExist(content) {
+  // DB에서 content가 있는지 조회 있으면 PASS
 
-  const normalizedPercent = content.replace(/%{2,}/g, '%');
-  // Replace sequences of two or more '/' with a single '/'
-  const normalizedSlashes = normalizedPercent.replace(/\/{2,}/g, '/');
-  // Normalize sequences of '[' to a single '['
-  const normalizedBrackets = normalizedSlashes.replace(/\[{2,}/g, '[');
-  
-  // Count '%' and '/' occurrences
-  const percentCount = (normalizedBrackets.match(/%/g) || []).length;
-  const slashCount = (normalizedBrackets.match(/\//g) || []).length;
-  // Count normalized '[' occurrences
-  const bracketCount = (normalizedBrackets.match(/\[/g) || []).length;
-  
+      // 'chats' 컬렉션에서 주어진 'content' 값을 가진 문서가 있는지 조회
+      var existingChat = db.collection('histories').findOne({ content: content });
 
-  // 조건 충족 시 GET 요청 보내기
-  if (percentCount >= 8 || slashCount >= 8 || bracketCount >= 8) {
-      const url = `http://3.38.25.218/block?security=0807&userName=${userName}`;
-      fetch(url)
-          .then(response => response.json())
-          .then()
-          .catch(error => console.error('Error:', error));
-  }
+      // 해당 'content'를 가진 채팅이 존재하지 않으면, 새로운 채팅을 삽입
+      if (existingChat == null) {
+          return false; 
+      } else {
+          console.log('content: '+content + "가 존재하여 추가하지 않음");
+          // 해당 'content'를 가진 채팅이 이미 존재하는 경우
+          return true;
+      }
+  
 }
 
 
@@ -66,12 +57,10 @@ function makeChat(messageObj){
   try {
     // MESSAGE_CREATE 유형의 메시지인지 확인
     if (messageObj.t === 'MESSAGE_CREATE') {
-
-      // 공백을 기준으로 단어 분리, 중복 제거 후 다시 결합
-      let content = messageObj.d.content.replace(/<[^>]*>/g, "");
-      content = [...new Set(content.split(/\s+/))].join(' ');
       
-      checkAndBlock(content, messageObj.d.author.username);
+      if(isExist(content)){
+        return false;
+      }
 
       const newChat = new Chat({
           globalName: determineGlobalName(messageObj),
@@ -83,7 +72,6 @@ function makeChat(messageObj){
           timeStamp: messageObj.d.timestamp
       });
       return newChat;
-     //res = saveChatToDB(newChat);
     }
   } catch (error) {
     console.error('Error extractMessageToDB :', error);
@@ -91,9 +79,7 @@ function makeChat(messageObj){
 }
 
 function processAndSaveMessages(messageList) {
-  const chatObjects = messageList.map(messageObj => makeChat(messageObj)).filter(chat => chat !== undefined);
-
-  
+  const chatObjects = messageList.map(messageObj => makeChat(messageObj)).filter(chat => chat !== false);
 
   if (chatObjects.length > 0) {
       saveChatListToDB(chatObjects);
@@ -118,21 +104,24 @@ onMessage(function(message) {
         if(messageObj.d.guild_id !== '1134059900666916935'){
           return;
         }
+
+        newChat = makeChat(messageObj);
+        saveChatToDB(newChat);
         
-        console.log(messageObj.d.author.username);
 
 
-        if (savingLock.isSaving) {
-          // If a save operation is in progress, add to temporary buffer
-          tempBuffer.push(messageObj);
-        } else {
-          // Otherwise, add to the main buffer
-          messageBuffer.push(messageObj);
-        }
 
-        if (messageBuffer.length >= 100 && !savingLock.isSaving) {
-          saveBufferToDB();
-        }
+        // if (savingLock.isSaving) {
+        //   // If a save operation is in progress, add to temporary buffer
+        //   tempBuffer.push(messageObj);
+        // } else {
+        //   // Otherwise, add to the main buffer
+        //   messageBuffer.push(messageObj);
+        // }
+
+        // if (messageBuffer.length >= 100 && !savingLock.isSaving) {
+        //   saveBufferToDB();
+        // }
 
 
       }
