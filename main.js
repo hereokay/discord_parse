@@ -9,14 +9,20 @@ SERVER_URI = process.env.SERVER_URI;
 
 // Discord WebSocket 게이트웨이 URL
 const url = "wss://gateway.discord.gg/?v=9&encoding=json";
-
 // WebSocket 클라이언트 생성
 let ws = new WebSocket(url);
+
+
+// value
+
+let messageQueue = []; // 메시지를 임시로 저장할 배열
+
 
 
 ws.on('open', () => {
     console.log('Connected to Discord Gateway');
     ws.send(JSON.stringify(INIT_MSG)); // init_msg 전송
+    ws.send(JSON.stringify(START_MSG));
 });
 
 ws.on('message', function incoming(message) {
@@ -29,7 +35,6 @@ ws.on('message', function incoming(message) {
       if (messageObj.t === 'MESSAGE_CREATE' && messageObj.d.guild_id === '1134059900666916935') {
         // 조건에 맞는 메시지를 큐에 추가
         messageQueue.push(messageObj);
-        console.log(messageObj);
       }
     } catch (error) {
       console.error('Error parsing message:', error);
@@ -56,9 +61,10 @@ setInterval(() => {
  // 1분마다 큐에 있는 메시지를 일괄적으로 처리
 setInterval(() => {
   if (messageQueue.length > 0) {
-    axios.post(URI, messageQueue)
+    l = messageQueue.length;
+    axios.post(SERVER_URI, messageQueue)
       .then(function (response) {
-        console.log(`${messageQueue.length} messages sent. Response:`, response.data);
+        console.log(`${l} messages sent. Response:`);
       })
       .catch(function (error) {
         console.error('Error sending messages:', error);
@@ -67,4 +73,4 @@ setInterval(() => {
     // 메시지 전송 후 큐 초기화
     messageQueue = [];
   }
-}, 60000); // 60000ms = 1분
+}, 60000/30); // 60000ms = 1분
