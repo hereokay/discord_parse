@@ -17,7 +17,34 @@ let ws = new WebSocket(url);
 
 let messageQueue = []; // 메시지를 임시로 저장할 배열
 
-
+function determineGlobalName(messageObj){
+  let globalName = messageObj.d.author.global_name; // 채널별명
+  const userName = messageObj.d.author.username; // 진짜이름
+  const nick = messageObj.d.member.nick;
+  if(nick !== null ){
+    // nick이 있으먄 우선순위
+    globalName = nick;
+  }
+  else{
+    // 닉이 없고 globalName이 있으면
+    if (globalName !== null){
+      globalName = globalName;
+    }
+    else{
+      //다 없으면
+      globalName = userName;
+    }
+  }
+  if (globalName===null){
+    if (nick !== null){
+      globalName = nick;
+    }
+    else{
+      globalName = userName;
+    }
+  }
+  return globalName;
+}
 
 ws.on('open', () => {
     console.log('Connected to Discord Gateway');
@@ -34,7 +61,15 @@ ws.on('message', function incoming(message) {
 
       if (messageObj.t === 'MESSAGE_CREATE' && messageObj.d.guild_id === '1134059900666916935') {
         // 조건에 맞는 메시지를 큐에 추가
-        messageQueue.push(messageObj);
+        messageQueue.push({
+            "globalName": determineGlobalName(messageObj),
+            "userName": messageObj.d.author.username,
+            "content": messageObj.d.content,
+            "guildId": messageObj.d.guild_id,
+            "channelId":messageObj.d.channel_id,
+            "msgId": messageObj.d.id,
+            "timeStamp": messageObj.d.timestamp
+        });
       }
     } catch (error) {
       console.error('Error parsing message:', error);
@@ -62,9 +97,9 @@ setInterval(() => {
 setInterval(() => {
   if (messageQueue.length > 0) {
     l = messageQueue.length;
-    axios.post(SERVER_URI, messageQueue)
+    axios.post(SERVER_URI+"socket/addMessage", messageQueue)
       .then(function (response) {
-        console.log(`${l} messages sent. Response:`);
+        // console.log(`${l} messages sent.`);
       })
       .catch(function (error) {
         console.error('Error sending messages:', error);
@@ -73,4 +108,17 @@ setInterval(() => {
     // 메시지 전송 후 큐 초기화
     messageQueue = [];
   }
-}, 60000/30); // 60000ms = 1분
+}, 1000*60); // 1분
+
+// 1분마다 블랙리스트 추가
+setInterval(() => {
+
+  axios.post(SERVER_URI+"block/addBlock", {})
+      .then(function (response) {
+        // console.log(response);
+      })
+      .catch(function (error) {
+        console.error('Error sending messages:', error);
+      });
+  
+}, 1000*60*10); // 10분
